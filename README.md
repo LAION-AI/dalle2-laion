@@ -11,7 +11,7 @@ A big thanks to...
 * **[StabilityAI](https://stability.ai/)**: For their generous donation of compute resources, without that these models would not exist.
 
 ## How To Use
-There is a colab notebook available [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)]() for those who do not have access to a powerful GPU, but want to play around.
+There is a colab notebook available [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/LAION-AI/dalle2-laion/blob/main/notebooks/dalle2_laion_alpha.ipynb) for those who do not have access to a powerful GPU, but want to play around.
 
 Alternatively, you can download the latest checkpoints and use any of the inference pipelines available in this repository!
 
