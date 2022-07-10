@@ -1,0 +1,20 @@
+# Configuration for Cog ⚙️
+# Reference: https://github.com/replicate/cog/blob/main/docs/yaml.md
+image: "r8.im/laion-ai/da-vinc-e"
+build:
+  gpu: true
+  python_version: "3.8"
+  python_packages:
+    - torch==1.10.1
+    - torchvision==0.11.2
+    - wandb==0.12.20
+    - matplotlib==3.5.2
+  
+  run:
+    - pip install git+https://github.com/Veldrovive/DALLE2-pytorch@f4b687798d367fc434d8127ab31141f0fea0db26
+    - mkdir -p /root/.cache/clip && wget -c --output-document "/root/.cache/clip/ViT-L-14.pt" "https://openaipublic.azureedge.net/clip/models/b8cca3fd41ae0c99ba7e8951adf17d267cdb84cd88be6f7c2e0eca1737a03836/ViT-L-14.pt"
+    # wget -c --output-document "decoder.pth" https://huggingface.co/Veldrovive/DA-VINC-E/resolve/main/text_conditioned_epoch_27.pth
+    # wget -c --output-document "config.json" https://huggingface.co/Veldrovive/DA-VINC-E/raw/main/text_conditioned_config.json
+    # wget -c --output-document "prior.pth" https://huggingface.co/zenglishuci/conditioned-prior/resolve/main/vit-l-14/prior_aes_finetune.pth
+
+predict: "predict.py:Predictor"
