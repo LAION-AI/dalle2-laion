@@ -1,0 +1,3 @@
+# Notebooks can get filled with random files so we specify the exact ones we want to keep
+notebooks/
+!notebooks/dalle2_laion_alpha.ipynb
