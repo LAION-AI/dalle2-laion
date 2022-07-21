@@ -1,0 +1,54 @@
+{
+    "decoder": {
+        "unet_sources": [
+            {
+                "unet_numbers": [1],
+                "load_model_from": {
+                    "load_type": "url",
+                    "path": "",
+                    "cache_dir": "./models",
+                    "filename_override": "first_decoder.pth"
+                },
+                "load_config_from": {
+                    "load_type": "url",
+                    "path": "",
+                    "cache_dir": "./models",
+                    "filename_override": "first_decoder_config.json"
+                }
+            },
+            {
+                "unet_numbers": [2],
+                "load_model_from": {
+                    "load_type": "url",
+                    "path": "",
+                    "cache_dir": "./models",
+                    "filename_override": "second_decoder.pth"
+                },
+                "load_config_from": {
+                    "load_type": "url",
+                    "path": "",
+                    "cache_dir": "./models",
+                    "filename_override": "second_decoder_config.json"
+                }
+            }
+        ]
+    },
+    "prior": {
+        "load_model_from": {
+            "load_type": "url",
+            "path": "",
+            "cache_dir": "./models"
+        },
+        "load_config_from": {
+            "load_type": "url",
+            "path": "",
+            "cache_dir": "./models"
+        }
+    },
+    "clip": {
+        "make": "openai",
+        "model": "ViT-L/14"
+    },
+
+    "devices": "cuda:0"
+}

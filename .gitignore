@@ -1,3 +1,20 @@
 # Notebooks can get filled with random files so we specify the exact ones we want to keep
 notebooks/
 !notebooks/dalle2_laion_alpha.ipynb
+
+# Configuration Files
+configs/*
+!configs/*.example.json
+!configs/README.md
+
+# Build Files
+dist/
+*.egg-info/
+
+# Model testing
+models*/
+output*/
+
+# Environment Files
+.env*/
+__pycache__/
