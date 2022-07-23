@@ -17,7 +17,7 @@ class DataRequirements:
     image: bool
     text: bool
     can_generate_embedding: bool
-    image_size: Tuple[int, int]
+    image_size: int
 
     def has_clip(self):
         self.can_generate_embedding = True
@@ -26,33 +26,38 @@ class DataRequirements:
         self,
         has_image_emb: bool = False, has_text_encoding: bool = False,
         has_image: bool = False, has_text: bool = False,
-        image_size: Optional[Tuple[int, int]] = None
+        image_size: Optional[int] = None
     ):
         # The image size must be equal to or greater than the required size
         # Verify that the text input is valid
+        errors = []
         is_valid = True
         if self.text_encoding:
             # Then we need to some way to get the text encoding
             if not (has_text_encoding or (self.can_generate_embedding and has_text)):
+                errors.append('Text encoding is required, but no text encoding or text was provided')
                 is_valid = False
         if self.text:
             # Then this requires text be passed in explicitly
             if not has_text:
+                errors.append('Text is required, but no text was provided')
                 is_valid = False
 
         # Verify that the image input is valid
-        image_size_greater = exists(image_size) and image_size[0] >= self.image_size[0] and image_size[1] >= self.image_size[1]
+        image_size_greater = exists(image_size) and image_size >= self.image_size
         if self.image_embedding:
             # Then we need to some way to get the image embedding
             # In this case, we also need to make sure that the image size is big enough to generate the embedding
             if not (has_image_emb or (self.can_generate_embedding and has_image and image_size_greater)):
+                errors.append('Image embedding is required, but no image embedding or image was provided or the image was too small')
                 is_valid = False
         if self.image:
             # Then this requires an image be passed in explicitly
             # In this case we also need to make sure the image is big enough to be used
             if not (has_image and image_size_greater):
+                errors.append('Image is required, but no image was provided or the image was too small')
                 is_valid = False
-        return is_valid
+        return is_valid, errors
 
     def __add__(self, other: 'DataRequirements') -> 'DataRequirements':
         return DataRequirements(
@@ -124,11 +129,11 @@ class DalleModelManager:
         with load_config.load_model_from.as_local_file() as model_file:
             model_state_dict = torch.load(model_file, map_location=self.load_device)
             if 'version' in model_state_dict:
-                model_version = version.parse(model_state_dict['version'])
+                model_version = model_state_dict['version']
                 if model_version != self.current_version:
                     print(f'WARNING: This decoder was trained on version {model_version} but the current version is {self.current_version}. This may result in the model failing to load.')
             else:
-                print(f'WARNING: This decoder was trained on an old version of Dalle2. This may result in the model failing to load.')
+                print(f'WARNING: This decoder was trained on an old version of Dalle2. This may result in the model failing to load or it may lead to producing garbage results.')
                 model_version = None  # No version info in the model
             
             requires_clip = False
@@ -234,11 +239,11 @@ class DalleModelManager:
         with load_config.load_model_from.as_local_file() as model_file:
             model_state_dict = torch.load(model_file, map_location=self.load_device)
             if 'version' in model_state_dict:
-                model_version = version.parse(model_state_dict['version'])
+                model_version = model_state_dict['version']
                 if model_version != self.current_version:
                     print(f'WARNING: This prior was trained on version {model_version} but the current version is {self.current_version}. This may result in the model failing to load.')
             else:
-                print(f'WARNING: This prior was trained on an old version of Dalle2. This may result in the model failing to load.')
+                print('WARNING: This prior was trained on an old version of Dalle2. This may result in the model failing to load or it may produce garbage results.')
                 model_version = None
 
             requires_clip = False
