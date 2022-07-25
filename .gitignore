@@ -15,6 +15,13 @@ dist/
 models*/
 output*/
 
+# Gradio
+gradio/
+flagged/
+gradio*
+!gradio_inference.py
+*.out
+
 # Environment Files
 .env*/
 __pycache__/
