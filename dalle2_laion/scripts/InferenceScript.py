@@ -178,6 +178,7 @@ class InferenceScript:
                 if unet_config.default_cond_scale is not None:
                     for unet_number, new_cond_scale in zip(unet_config.unet_numbers, unet_config.default_cond_scale):
                         cond_scale[unet_number - 1] = new_cond_scale
+        self.print(f"Sampling decoder with cond_scale: {cond_scale}")
             
         decoder_info = self.model_manager.decoder_info
         assert decoder_info is not None, "No decoder loaded."
@@ -198,6 +199,7 @@ class InferenceScript:
                 image_embed = self._embed_images(images)
             # Then we need to group these tensors into batches of size batch_size such that the total number of samples is sample_count
             image_embeddings, image_embeddings_map = self._repeat_tensor_and_batch(image_embed, repeat_num=sample_count, batch_size=batch_size)
+            self.print(f"Decoder batched inputs into {len(image_embeddings)} batches. Total number of samples: {sum(len(t) for t in image_embeddings)}.")
         
         if data_requirements.text_encoding:
             if text_encoding is None:
@@ -216,6 +218,12 @@ class InferenceScript:
                 if data_requirements.text_encoding:
                     args["text_encodings"] = text_encodings[i].to(self.device)
                     embeddings_map = text_encodings_map[i]
+                if inpaint_images is not None:
+                    assert len(inpaint_images) == len(inpaint_image_masks), "Number of inpaint images and masks must match."
+                    inpaint_image_tensors = self._pil_to_torch(inpaint_images, resize_for_clip=False)
+                    args["inpaint_image"] = inpaint_image_tensors.to(self.device)
+                    args["inpaint_mask"] = torch.stack(inpaint_image_masks).to(self.device)
+                    self.print(f"image tensor shape: {args['inpaint_image'].shape}. mask shape: {args['inpaint_mask'].shape}")
                 output_images = decoder.sample(**args, cond_scale=cond_scale)
                 for output_image, input_embedding_number in zip(output_images, embeddings_map):
                     if input_embedding_number not in output_image_map:
@@ -238,6 +246,7 @@ class InferenceScript:
             if cond_scale is None:
                 # Fallback
                 cond_scale = 1.0
+        self.print(f"Sampling prior with cond_scale: {cond_scale}")
 
         assert self.model_manager.prior_info is not None
         data_requirements = self.model_manager.prior_info.data_requirements
@@ -252,6 +261,7 @@ class InferenceScript:
         else:
             text_tokens = text_or_tokens
         text_batches, text_batches_map = self._repeat_tensor_and_batch(text_tokens, repeat_num=sample_count, batch_size=batch_size)
+        self.print(f"Prior batched inputs into {len(text_batches)} batches. Total number of samples: {sum(len(t) for t in text_batches)}.")
         embedding_map: Dict[int, List[torch.Tensor]] = {}
         # Weirdly the prior requires clip be part of itself to work so we insert it 
         with self._prior_in_gpu() as prior:

@@ -3,6 +3,7 @@
         "unet_sources": [
             {
                 "unet_numbers": [1],
+                "default_cond_scale": [1.7],
                 "load_model_from": {
                     "load_type": "url",
                     "path": "https://huggingface.co/laion/DALLE2-PyTorch/resolve/main/decoder/v1.0.2/latest.pth",
