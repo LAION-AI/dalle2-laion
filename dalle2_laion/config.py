@@ -65,6 +65,8 @@ class SingleDecoderLoadConfig(BaseModel):
     Configuration for the single decoder load.
     """
     unet_numbers: List[int]
+    default_sample_timesteps: Optional[List[int]] = None
+    default_cond_scale: Optional[List[float]] = None
     load_model_from: File
     load_config_from: Optional[File]  # The config may be defined within the model file if the version is high enough
 
@@ -111,6 +113,8 @@ class PriorLoadConfig(BaseModel):
     """
     Configuration for the prior load.
     """
+    default_sample_timesteps: Optional[int] = None
+    default_cond_scale: Optional[float] = None
     load_model_from: File
     load_config_from: Optional[File]  # The config may be defined within the model file if the version is high enough
 

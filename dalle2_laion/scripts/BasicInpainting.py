@@ -14,8 +14,8 @@ class BasicInpainting(InferenceScript):
         images: List[PILImage.Image],
         masks: List[torch.Tensor],  # Boolean tensor of same size as image
         text: List[str],
-        prior_cond_scale: float = 1.0,
-        decoder_cond_scale: float = 1.0,
+        prior_cond_scale: float = None,  # Use default cond scale from config by default
+        decoder_cond_scale: float = None,
         sample_count: int = 1,
         prior_batch_size: int = 100,
         decoder_batch_size: int = 10

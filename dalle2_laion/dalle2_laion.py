@@ -81,6 +81,7 @@ class DalleModelManager:
     Used to load priors and decoders and to provide a simple interface to run general scripts against
     """
     def __init__(self, model_load_config: ModelLoadConfig):
+        self.model_config = model_load_config
         self.current_version = version.parse(Dalle2Version)
         self.single_device = isinstance(model_load_config.devices, str)
         self.devices = [torch.device(model_load_config.devices)] if self.single_device else [torch.device(d) for d in model_load_config.devices]
@@ -99,7 +100,7 @@ class DalleModelManager:
 
         if (exists(self.decoder_info) and self.decoder_info.requires_clip) or (exists(self.prior_info) and self.prior_info.requires_clip):
             assert model_load_config.clip is not None, 'Your model requires clip to be loaded. Please provide a clip config.'
-            self.clip = model_load_config.clip.create().to(self.devices[0])
+            self.clip = model_load_config.clip.create()
             # Update the data requirements to include the clip model
             if exists(self.decoder_info):
                 self.decoder_info.data_requirements.has_clip()
@@ -126,6 +127,13 @@ class DalleModelManager:
         """
         Loads a single decoder from a model and a config file
         """
+        unet_sample_timesteps = load_config.default_sample_timesteps
+        def apply_default_config(config: DecoderConfig):
+            if unet_sample_timesteps is not None:
+                base_sample_timesteps = [None] * len(config.unets)
+                for unet_number, timesteps in zip(load_config.unet_numbers, unet_sample_timesteps):
+                    base_sample_timesteps[unet_number - 1] = timesteps
+        
         with load_config.load_model_from.as_local_file() as model_file:
             model_state_dict = torch.load(model_file, map_location=self.load_device)
             if 'version' in model_state_dict:
@@ -140,22 +148,24 @@ class DalleModelManager:
             if 'config' in model_state_dict:
                 # Then we define the decoder config from this object
                 decoder_config = TrainDecoderConfig(**model_state_dict['config']).decoder
+                apply_default_config(decoder_config)
                 if decoder_config.clip is not None:
                     # We don't want to load clip with the model
                     requires_clip = True
                     decoder_config.clip = None
-                decoder = decoder_config.create().to(self.devices[0]).eval()
+                decoder = decoder_config.create().eval()
                 decoder.load_state_dict(model_state_dict['model'], strict=self.strict_loading)  # If the model has a config included, then we know the model_state_dict['model'] is the actual model
             else:
                 # In this case, the state_dict is the model itself. This means we also must load the config from an external file
                 assert load_config.load_config_from is not None
                 with load_config.load_config_from.as_local_file() as config_file:
                     decoder_config = TrainDecoderConfig.from_json_path(config_file).decoder
+                    apply_default_config(decoder_config)
                     if decoder_config.clip is not None:
                         # We don't want to load clip with the model
                         requires_clip = True
                         decoder_config.clip = None
-                decoder = decoder_config.create().to(self.devices[0]).eval()
+                decoder = decoder_config.create().eval()
                 decoder.load_state_dict(model_state_dict, strict=self.strict_loading)
 
             return decoder, decoder_config, model_version, requires_clip
@@ -177,16 +187,20 @@ class DalleModelManager:
             true_train_timesteps: List[int] = [None] * load_config.final_unet_number  # Stores the number of timesteps that each unet trained with
             true_beta_schedules: List[str] = [None] * load_config.final_unet_number  # Stores the beta scheduler that each unet used
             true_uses_learned_variance: List[bool] = [None] * load_config.final_unet_number  # Stores whether each unet uses learned variance
+            true_sample_timesteps: List[int] = [None] * load_config.final_unet_number  # Stores the number of timesteps that each unet used to sample
 
             requires_clip = False
             for source in load_config.unet_sources:
                 decoder, decoder_config, decoder_version, unets_requires_clip = self._load_single_decoder(source)
                 if unets_requires_clip:
                     requires_clip = True
-                for unet_number in source.unet_numbers:
-                    print(f"Loading unet {unet_number}")
+                if source.default_sample_timesteps is not None:
+                    assert len(source.default_sample_timesteps) == len(source.unet_numbers)
+                for i, unet_number in enumerate(source.unet_numbers):
                     unet_index = unet_number - 1
                     # Now we need to insert the unet into the true unets and the unet config into the true config
+                    if source.default_sample_timesteps is not None:
+                        true_sample_timesteps[unet_index] = source.default_sample_timesteps[i]
                     true_unets[unet_index] = decoder.unets[unet_index]
                     true_unet_configs[unet_index] = decoder_config.unets[unet_index]
                     true_upsampling_sizes[unet_index] = None if unet_index == 0 else decoder_config.image_sizes[unet_index - 1], decoder_config.image_sizes[unet_index]
@@ -210,11 +224,14 @@ class DalleModelManager:
             true_decoder_config_obj['timesteps'] = true_train_timesteps[0]
             true_decoder_config_obj['beta_schedule'] = true_beta_schedules
             true_decoder_config_obj['learned_variance'] = true_uses_learned_variance
+            # If any of the sample_timesteps are not None, then we need to insert them into the true decoder config
+            if any(true_sample_timesteps):
+                true_decoder_config_obj['sample_timesteps'] = true_sample_timesteps
 
             # Now we can create the decoder and substitute the unets
             true_decoder_config = DecoderConfig(**true_decoder_config_obj)
             decoder_data_requirements = self._get_decoder_data_requirements(true_decoder_config)
-            decoder = true_decoder_config.create().to(self.devices[0]).eval()
+            decoder = true_decoder_config.create().eval()
             decoder.unets = nn.ModuleList(true_unets)
             decoder.to(torch.float32)
             return ModelInfo(decoder, decoder_version, requires_clip, decoder_data_requirements)
@@ -236,6 +253,14 @@ class DalleModelManager:
         """
         Loads a prior from a model and a config file
         """
+        sample_timesteps = load_config.default_sample_timesteps
+        def apply_default_config(config: DiffusionPriorConfig) -> DiffusionPriorConfig:
+            """
+            Applies the default config to the given config
+            """
+            if sample_timesteps is not None:
+                config.sample_timesteps = sample_timesteps
+
         with load_config.load_model_from.as_local_file() as model_file:
             model_state_dict = torch.load(model_file, map_location=self.load_device)
             if 'version' in model_state_dict:
@@ -250,22 +275,24 @@ class DalleModelManager:
             if 'config' in model_state_dict:
                 # Then we define the prior config from this object
                 prior_config = TrainDiffusionPriorConfig(**model_state_dict['config']).prior
+                apply_default_config(prior_config)
                 if prior_config.clip is not None:
                     # We don't want to load clip with the model
                     prior_config.clip = None
                     requires_clip = True
-                prior = prior_config.create().to(self.devices[0]).eval()
+                prior = prior_config.create().eval()
                 prior.load_state_dict(model_state_dict['model'], strict=self.strict_loading)
             else:
                 # In this case, the state_dict is the model itself. This means we also must load the config from an external file
                 assert load_config.load_config_from is not None
                 with load_config.load_config_from.as_local_file() as config_file:
                     prior_config = TrainDiffusionPriorConfig.from_json_path(config_file).prior
+                    apply_default_config(prior_config)
                     if prior_config.clip is not None:
                         # We don't want to load clip with the model
                         prior_config.clip = None
                         requires_clip = True
-                prior = prior_config.create().to(self.devices[0]).eval()
+                prior = prior_config.create().eval()
                 prior.load_state_dict(model_state_dict, strict=self.strict_loading)
 
             data_requirements = self._get_prior_data_requirements(prior_config)

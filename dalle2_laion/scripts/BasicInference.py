@@ -12,7 +12,7 @@ class BasicInference(InferenceScript):
     def run(
         self,
         text: Union[str, List[str]],
-        prior_cond_scale: float = 1.0, decoder_cond_scale: float = 1.0,
+        prior_cond_scale: float = None, decoder_cond_scale: float = None,  # Use defaults from config by default
         prior_sample_count: int = 1, decoder_sample_count: int = 1,
         prior_batch_size: int = 100, decoder_batch_size: int = 10,
         prior_num_samples_per_batch: int = 2

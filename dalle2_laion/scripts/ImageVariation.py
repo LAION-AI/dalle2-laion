@@ -12,7 +12,7 @@ class ImageVariation(InferenceScript):
         self,
         images: List[PILImage.Image],
         text: Optional[List[str]],
-        cond_scale: float = 1.0,
+        cond_scale: float = None,  # Use defaults from config by default
         sample_count: int = 1,
         batch_size: int = 10
     ) -> Dict[int, List[PILImage.Image]]:

@@ -50,6 +50,43 @@ class InferenceScript:
         prior.clip = clip
         yield prior
         prior.clip = None
+
+    @contextmanager
+    def _decoder_in_gpu(self):
+        # Moves the decoder to gpu and prior to cpu and removes both from gpu after the context is exited.
+        assert self.model_manager.decoder_info is not None, "Cannot use the decoder without a decoder model."
+        if self.model_manager.prior_info is not None:
+            prior = self.model_manager.prior_info.model
+            prior.to('cpu')
+        with self._clip_in_decoder() as decoder:
+            decoder.to(self.device)
+            yield decoder
+            decoder.to('cpu')
+
+    @contextmanager
+    def _prior_in_gpu(self):
+        # Moves the prior to gpu and decoder to cpu and removes both from gpu after the context is exited.
+        assert self.model_manager.prior_info is not None, "Cannot use the prior without a prior model."
+        if self.model_manager.decoder_info is not None:
+            decoder = self.model_manager.decoder_info.model
+            decoder.to('cpu')
+        with self._clip_in_prior() as prior:
+            prior.to(self.device)
+            yield prior
+            prior.to('cpu')
+
+    @contextmanager
+    def _clip_in_gpu(self):
+        # Moves the clip model to gpu and doesn't touch the others. If clip was originally on cpu, then it is moved back to cpu after
+        clip = self.model_manager.clip
+        assert clip is not None, "Cannot use the clip without a clip model."
+        original_device = next(iter(clip.parameters())).device
+        not_on_device = original_device != self.device
+        if not_on_device:
+            clip.to(self.device)
+        yield clip
+        if not_on_device:
+            clip.to(original_device)
     
     def _pil_to_torch(self, image: Union[PILImage.Image, List[PILImage.Image]], resize_for_clip: bool = True):
         """
@@ -97,9 +134,9 @@ class InferenceScript:
         Generates the clip embeddings for a list of images
         """
         assert self.model_manager.clip is not None, "Cannot generate embeddings for this model."
-        clip = self.model_manager.clip
         images_tensor = self._pil_to_torch(images, resize_for_clip=True).to(self.device)
-        image_embed = clip.embed_image(images_tensor)
+        with self._clip_in_gpu() as clip:
+            image_embed = clip.embed_image(images_tensor)
         return image_embed.image_embed
 
     def _encode_text(self, text: List[str]) -> torch.Tensor:
@@ -108,8 +145,8 @@ class InferenceScript:
         """
         assert self.model_manager.clip is not None, "Cannot generate embeddings for this model."
         text_tokens = self._tokenize_text(text)
-        clip = self.model_manager.clip
-        text_embed = clip.embed_text(text_tokens.to(self.device))
+        with self._clip_in_gpu() as clip:
+            text_embed = clip.embed_text(text_tokens.to(self.device))
         return text_embed.text_encodings
 
     def _tokenize_text(self, text: List[str]) -> torch.Tensor:
@@ -123,7 +160,7 @@ class InferenceScript:
         images: List[PILImage.Image] = None, image_embed: List[torch.Tensor] = None,
         text: List[str] = None, text_encoding: List[torch.Tensor] = None,
         inpaint_images: List[PILImage.Image] = None, inpaint_image_masks: List[torch.Tensor] = None,
-        cond_scale: float = 1.0, sample_count: int = 1, batch_size: int = 10,
+        cond_scale: float = None, sample_count: int = 1, batch_size: int = 10,
     ):
         """
         Samples images from the decoder
@@ -132,6 +169,16 @@ class InferenceScript:
         1. Variation generation: If images are passed in the image embeddings will be generated based on those.
         2. In-painting generation: If images and masks are passed in, the images will be in-painted using the masks and the image embeddings.
         """
+        if cond_scale is None:
+            # Then we use the default scale
+            load_config = self.model_manager.model_config.decoder
+            unet_configs = load_config.unet_sources
+            cond_scale = [1.0] * load_config.final_unet_number
+            for unet_config in unet_configs:
+                if unet_config.default_cond_scale is not None:
+                    for unet_number, new_cond_scale in zip(unet_config.unet_numbers, unet_config.default_cond_scale):
+                        cond_scale[unet_number - 1] = new_cond_scale
+            
         decoder_info = self.model_manager.decoder_info
         assert decoder_info is not None, "No decoder loaded."
         data_requirements = decoder_info.data_requirements
@@ -159,23 +206,24 @@ class InferenceScript:
 
         assert len(image_embeddings) > 0, "No data provided for decoder inference."
         output_image_map: Dict[int, List[PILImage.Image]] = {}
-        for i in range(len(image_embeddings)):
-            args = {}
-            embeddings_map = []
-            if data_requirements.image_embedding:
-                args["image_embed"] = image_embeddings[i].to(self.device)
-                embeddings_map = image_embeddings_map[i]
-            if data_requirements.text_encoding:
-                args["text_encodings"] = text_encodings[i].to(self.device)
-                embeddings_map = text_encodings_map[i]
-            output_images = decoder_info.model.sample(**args, cond_scale=cond_scale)
-            for output_image, input_embedding_number in zip(output_images, embeddings_map):
-                if input_embedding_number not in output_image_map:
-                    output_image_map[input_embedding_number] = []
-                output_image_map[input_embedding_number].append(self._torch_to_pil(output_image))
-        return output_image_map
+        with self._decoder_in_gpu() as decoder:
+            for i in range(len(image_embeddings)):
+                args = {}
+                embeddings_map = []
+                if data_requirements.image_embedding:
+                    args["image_embed"] = image_embeddings[i].to(self.device)
+                    embeddings_map = image_embeddings_map[i]
+                if data_requirements.text_encoding:
+                    args["text_encodings"] = text_encodings[i].to(self.device)
+                    embeddings_map = text_encodings_map[i]
+                output_images = decoder.sample(**args, cond_scale=cond_scale)
+                for output_image, input_embedding_number in zip(output_images, embeddings_map):
+                    if input_embedding_number not in output_image_map:
+                        output_image_map[input_embedding_number] = []
+                    output_image_map[input_embedding_number].append(self._torch_to_pil(output_image))
+            return output_image_map
 
-    def _sample_prior(self, text_or_tokens: Union[torch.Tensor, List[str]], cond_scale: float = 1.0, sample_count: int = 1, batch_size: int = 100, num_samples_per_batch: int = 2):
+    def _sample_prior(self, text_or_tokens: Union[torch.Tensor, List[str]], cond_scale: float = None, sample_count: int = 1, batch_size: int = 100, num_samples_per_batch: int = 2):
         """
         Samples image embeddings from the prior
         :param text_or_tokens: A list of strings to use as input to the prior or a tensor of tokens generated from strings.
@@ -184,6 +232,13 @@ class InferenceScript:
         :param batch_size: The max number of samples to run in parallel.
         :param num_samples_per_batch: The number of samples to rerank for each output sample.
         """
+        if cond_scale is None:
+            # Then we use the default scale
+            cond_scale = self.model_manager.model_config.prior.default_cond_scale
+            if cond_scale is None:
+                # Fallback
+                cond_scale = 1.0
+
         assert self.model_manager.prior_info is not None
         data_requirements = self.model_manager.prior_info.data_requirements
         is_valid, errors = data_requirements.is_valid(
@@ -199,7 +254,7 @@ class InferenceScript:
         text_batches, text_batches_map = self._repeat_tensor_and_batch(text_tokens, repeat_num=sample_count, batch_size=batch_size)
         embedding_map: Dict[int, List[torch.Tensor]] = {}
         # Weirdly the prior requires clip be part of itself to work so we insert it 
-        with self._clip_in_prior() as prior:
+        with self._prior_in_gpu() as prior:
             for text_batch, batch_map in zip(text_batches, text_batches_map):
                 text_batch = text_batch.to(self.device)
                 embeddings = prior.sample(text_batch, cond_scale=cond_scale, num_samples_per_batch=num_samples_per_batch)
