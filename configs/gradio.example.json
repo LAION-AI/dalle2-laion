@@ -1,0 +1,51 @@
+{
+    "decoder": {
+        "unet_sources": [
+            {
+                "unet_numbers": [1],
+                "default_cond_scale": [1.7],
+                "load_model_from": {
+                    "load_type": "url",
+                    "path": "https://huggingface.co/laion/DALLE2-PyTorch/resolve/main/decoder/v1.0.2/latest.pth",
+                    "cache_dir": "./models",
+                    "filename_override": "new_decoder.pth"
+                }
+            },
+            {
+                "unet_numbers": [2],
+                "load_model_from": {
+                    "load_type": "url",
+                    "path": "https://huggingface.co/Veldrovive/upsamplers/resolve/main/working/latest.pth",
+                    "cache_dir": "./models",
+                    "filename_override": "second_decoder.pth"
+                },
+                "load_config_from": {
+                    "load_type": "url",
+                    "path": "https://huggingface.co/Veldrovive/upsamplers/raw/main/working/decoder_config.json",
+                    "cache_dir": "./models",
+                    "filename_override": "second_decoder_config.json"
+                }
+            }
+        ]
+    },
+    "prior": {
+        "load_model_from": {
+            "load_type": "url",
+            "path": "https://huggingface.co/laion/DALLE2-PyTorch/resolve/main/prior/latest.pth",
+            "cache_dir": "./models",
+            "filename_override": "prior.pth"
+        },
+        "load_config_from": {
+            "load_type": "url",
+            "path": "https://huggingface.co/laion/DALLE2-PyTorch/raw/main/prior/prior_config.json",
+            "cache_dir": "./models"
+        }
+    },
+    "clip": {
+        "make": "openai",
+        "model": "ViT-L/14"
+    },
+
+    "devices": "cuda:0",
+    "strict_loading": false
+}
