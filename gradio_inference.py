@@ -4,7 +4,7 @@ except ImportError:
     print("Please install gradio: `pip install gradio`")
     exit(1)
 from pathlib import Path
-from typing import Dict
+from typing import Dict, List
 from PIL import Image as PILImage
 from dalle2_laion import ModelLoadConfig, DalleModelManager, utils
 from dalle2_laion.scripts import BasicInference, ImageVariation, BasicInpainting
@@ -16,11 +16,15 @@ model_manager = DalleModelManager(model_config)
 output_path = Path(__file__).parent / 'output/gradio'
 output_path.mkdir(parents=True, exist_ok=True)
 
-def dream(text: str, samples_per_prompt: int):
+cond_scale_sliders = [gr.Slider(minimum=0.5, maximum=5, step=0.05, label="Prior Cond Scale", value=1),]
+for i in range(model_manager.model_config.decoder.final_unet_number):
+    cond_scale_sliders.append(gr.Slider(minimum=0.5, maximum=5, step=0.05, label=f"Decoder {i+1} Cond Scale", value=1))
+
+def dream(text: str, samples_per_prompt: int, prior_cond_scale: float, *decoder_cond_scales: List[float]):
     prompts = text.split('\n')[:8]
 
     script = BasicInference(model_manager, verbose=True)
-    output = script.run(prompts, prior_sample_count=samples_per_prompt, decoder_batch_size=40)
+    output = script.run(prompts, prior_sample_count=samples_per_prompt, decoder_batch_size=40, prior_cond_scale=prior_cond_scale, decoder_cond_scale=decoder_cond_scales)
     all_outputs = []
     for text, embedding_outputs in output.items():
         for index, embedding_output in embedding_outputs.items():
@@ -30,7 +34,8 @@ dream_interface = gr.Interface(
     dream,
     inputs=[
         gr.Textbox(placeholder="A corgi wearing a top hat...", lines=8),
-        gr.Slider(minimum=1, maximum=4, step=1, label="Samples per prompt", value=1)
+        gr.Slider(minimum=1, maximum=4, step=1, label="Samples per prompt", value=1),
+        *cond_scale_sliders
     ],
     outputs=[
         gr.Gallery()
@@ -39,12 +44,12 @@ dream_interface = gr.Interface(
     description="Generate images from text. You can give a maximum of 8 prompts at a time. Any more will be ignored. Generation takes around 5 minutes so be patient.",
 )
 
-def variation(image: PILImage.Image, text: str, num_generations: int):
+def variation(image: PILImage.Image, text: str, num_generations: int, *decoder_cond_scales: List[float]):
     print("Variation using text:", text)
     img = utils.center_crop_to_square(image)
 
     script = ImageVariation(model_manager, verbose=True)
-    output = script.run([img], [text], sample_count=num_generations)
+    output = script.run([img], [text], sample_count=num_generations, cond_scale=decoder_cond_scales)
     all_outputs = []
     for index, embedding_output in output.items():
         all_outputs.extend(embedding_output)
@@ -54,7 +59,8 @@ variation_interface = gr.Interface(
     inputs=[
         gr.Image(value="https://www.thefarmersdog.com/digest/wp-content/uploads/2021/12/corgi-top-1400x871.jpg", source="upload", interactive=True, type="pil"),
         gr.Text(),
-        gr.Slider(minimum=1, maximum=6, label="Number to generate", value=2, step=1)
+        gr.Slider(minimum=1, maximum=6, label="Number to generate", value=2, step=1),
+        *cond_scale_sliders[1:]
     ],
     outputs=[
         gr.Gallery()
@@ -63,7 +69,7 @@ variation_interface = gr.Interface(
     description="Generates images similar to the input image.\nGeneration takes around 5 minutes so be patient.",
 )
 
-def inpaint(image: Dict[str, PILImage.Image], text: str, num_generations: int):
+def inpaint(image: Dict[str, PILImage.Image], text: str, num_generations: int, prior_cond_scale: float, *decoder_cond_scales: List[float]):
     print("Inpainting using text:", text)
     img, mask = image['image'], image['mask']
     # Remove alpha from img
@@ -73,7 +79,7 @@ def inpaint(image: Dict[str, PILImage.Image], text: str, num_generations: int):
 
     script = BasicInpainting(model_manager, verbose=True)
     mask = ~utils.get_mask_from_image(mask)
-    output = script.run(images=[img], masks=[mask], text=[text], sample_count=num_generations)
+    output = script.run(images=[img], masks=[mask], text=[text], sample_count=num_generations, prior_cond_scale=prior_cond_scale, decoder_cond_scale=decoder_cond_scales)
     all_outputs = []
     for index, embedding_output in output.items():
         all_outputs.extend(embedding_output)
@@ -83,7 +89,8 @@ inpaint_interface = gr.Interface(
     inputs=[
         gr.Image(value="https://www.thefarmersdog.com/digest/wp-content/uploads/2021/12/corgi-top-1400x871.jpg", source="upload", tool="sketch", interactive=True, type="pil"),
         gr.Text(),
-        gr.Slider(minimum=1, maximum=6, label="Number to generate", value=2, step=1)
+        gr.Slider(minimum=1, maximum=6, label="Number to generate", value=2, step=1),
+        *cond_scale_sliders
     ],
     outputs=[
         gr.Gallery()

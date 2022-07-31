@@ -9,9 +9,23 @@ import torch
 
 @click.group()
 @click.option('--verbose', '-v', is_flag=True, default=False, help='Print verbose output.')
+@click.option('--suppress-updates', '-s', is_flag=True, default=False, help='Suppress updating models if checksums do not match.')
 @click.pass_context
-def inference(ctx, verbose):
+def inference(ctx, verbose, suppress_updates):
     ctx.obj['verbose'] = verbose
+    ctx.obj['suppress_updates'] = suppress_updates
+
+@inference.command()
+@click.option('--model-config', default='./configs/upsampler.example.json', help='Path to model config file')
+@click.pass_context
+def test(ctx, model_config):
+    model_config = ModelLoadConfig.from_json_path(model_config)
+    if model_config.decoder is not None:
+        for unet_source in model_config.decoder.unet_sources:
+            print('Checksum:', unet_source.load_model_from.checksum_file_path)
+    if model_config.prior is not None:
+        print('Checksum:', model_config.prior.load_model_from.checksum_file_path)
+    model_manager = DalleModelManager(model_config, check_updates=not ctx.obj['suppress_updates'])
 
 @inference.command()
 @click.option('--model-config', default='./configs/upsampler.example.json', help='Path to model config file')
@@ -40,7 +54,7 @@ def dream(ctx, model_config: str, output_path: str, decoder_batch_size: int):
             prompts.append(prompt)
     num_prior_samples = click.prompt('How many samples would you like to generate for each prompt?', default=1, type=int)
 
-    dreamer: BasicInference = BasicInference.create(model_config, verbose=verbose)
+    dreamer: BasicInference = BasicInference.create(model_config, verbose=verbose, check_updates=not ctx.obj['suppress_updates'])
     output_map = dreamer.run(prompts, prior_sample_count=num_prior_samples, decoder_batch_size=decoder_batch_size)
     os.makedirs(output_path, exist_ok=True)
     for text in output_map:
@@ -55,7 +69,7 @@ def dream(ctx, model_config: str, output_path: str, decoder_batch_size: int):
 @click.pass_context
 def variation(ctx, model_config: str, output_path: str, decoder_batch_size: int):
     verbose = ctx.obj['verbose']
-    variation: ImageVariation = ImageVariation.create(model_config, verbose=verbose)
+    variation: ImageVariation = ImageVariation.create(model_config, verbose=verbose, check_updates=not ctx.obj['suppress_updates'])
     decoder_data_requirements = variation.model_manager.decoder_info.data_requirements
     image_filepaths: List[Path] = []
     text_prompts: List[str] = [] if decoder_data_requirements.text_encoding else None
@@ -99,7 +113,7 @@ def variation(ctx, model_config: str, output_path: str, decoder_batch_size: int)
 @click.pass_context
 def inpaint(ctx, model_config: str, output_path: str):
     verbose = ctx.obj['verbose']
-    inpainting: BasicInpainting = BasicInpainting.create(model_config, verbose=verbose)
+    inpainting: BasicInpainting = BasicInpainting.create(model_config, verbose=verbose, check_updates=not ctx.obj['suppress_updates'])
     image_filepaths: List[Path] = []
     mask_filepaths: List[Path] = []
     text_prompts: List[str] = []

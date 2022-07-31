@@ -80,7 +80,12 @@ class DalleModelManager:
     """
     Used to load priors and decoders and to provide a simple interface to run general scripts against
     """
-    def __init__(self, model_load_config: ModelLoadConfig):
+    def __init__(self, model_load_config: ModelLoadConfig, check_updates: bool = True):
+        """
+        Downloads the models and loads them into memory.
+        If check_updates is True, then the models will be re-downloaded if checksums do not match.
+        """
+        self.check_updates = check_updates
         self.model_config = model_load_config
         self.current_version = version.parse(Dalle2Version)
         self.single_device = isinstance(model_load_config.devices, str)
@@ -134,7 +139,7 @@ class DalleModelManager:
                 for unet_number, timesteps in zip(load_config.unet_numbers, unet_sample_timesteps):
                     base_sample_timesteps[unet_number - 1] = timesteps
         
-        with load_config.load_model_from.as_local_file() as model_file:
+        with load_config.load_model_from.as_local_file(check_update=self.check_updates) as model_file:
             model_state_dict = torch.load(model_file, map_location=self.load_device)
             if 'version' in model_state_dict:
                 model_version = model_state_dict['version']
@@ -158,7 +163,7 @@ class DalleModelManager:
             else:
                 # In this case, the state_dict is the model itself. This means we also must load the config from an external file
                 assert load_config.load_config_from is not None
-                with load_config.load_config_from.as_local_file() as config_file:
+                with load_config.load_config_from.as_local_file(check_update=self.check_updates) as config_file:
                     decoder_config = TrainDecoderConfig.from_json_path(config_file).decoder
                     apply_default_config(decoder_config)
                     if decoder_config.clip is not None:
@@ -261,7 +266,7 @@ class DalleModelManager:
             if sample_timesteps is not None:
                 config.sample_timesteps = sample_timesteps
 
-        with load_config.load_model_from.as_local_file() as model_file:
+        with load_config.load_model_from.as_local_file(check_update=self.check_updates) as model_file:
             model_state_dict = torch.load(model_file, map_location=self.load_device)
             if 'version' in model_state_dict:
                 model_version = model_state_dict['version']
@@ -285,7 +290,7 @@ class DalleModelManager:
             else:
                 # In this case, the state_dict is the model itself. This means we also must load the config from an external file
                 assert load_config.load_config_from is not None
-                with load_config.load_config_from.as_local_file() as config_file:
+                with load_config.load_config_from.as_local_file(check_update=self.check_updates) as config_file:
                     prior_config = TrainDiffusionPriorConfig.from_json_path(config_file).prior
                     apply_default_config(prior_config)
                     if prior_config.clip is not None:

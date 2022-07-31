@@ -1,4 +1,3 @@
-from json import decoder
 from pathlib import Path
 from dalle2_pytorch.train_configs import AdapterConfig as ClipConfig
 from typing import List, Optional, Union
@@ -19,15 +18,51 @@ class LoadLocation(str, Enum):
 class File(BaseModel):
     load_type: LoadLocation
     path: str
+    checksum_file_path: Optional[str] = None
     cache_dir: Optional[Path] = None
     filename_override: Optional[str] = None
 
-    def download_to(self, path: str):
+    @root_validator(pre=True)
+    def add_default_checksum(cls, values):
+        """
+        When loading from url, the checksum is the best way to see if there is an update to the model.
+        If we are loading from specific places, we know it is already storing a checksum and we can read and compare those to check for updates.
+        Sources we can do this with:
+        1. Huggingface: If model is at https://huggingface.co/[ORG?]/[REPO]/resolve/main/[PATH_TO_MODEL.pth] we know the checksum is at https://huggingface.co/[ORG?]/[REPO]/raw/main/[PATH_TO_MODEL.pth]
+        """
+        if values["load_type"] == LoadLocation.url:
+            filepath = values["path"]
+            existing_checksum = values["checksum_file_path"] if "checksum_file_path" in values else None
+            if filepath.startswith("https://huggingface.co/") and "resolve" in filepath and existing_checksum is None:
+                values["checksum_file_path"] = filepath.replace("resolve/main/", "raw/main/")
+        return values
+
+    def download_to(self, path: Path):
         """
         Downloads the file to the given path
         """
         assert self.load_type == LoadLocation.url
         urllib.request.urlretrieve(self.path, path)
+        if self.checksum_file_path is not None:
+            urllib.request.urlretrieve(self.checksum_file_path, str(path) + ".checksum")
+
+    def download_checksum_to(self, path: Path):
+        """
+        Downloads the checksum to the given path
+        """
+        assert self.load_type == LoadLocation.url
+        assert self.checksum_file_path is not None, "No checksum file path specified"
+        urllib.request.urlretrieve(self.checksum_file_path, path)
+
+    def get_remote_checksum(self):
+        """
+        Downloads the remote checksum as a tempfile and returns its content
+        """
+        with tempfile.TemporaryDirectory() as tmpdir:
+            self.download_checksum_to(tmpdir + "/checksum")
+            with open(tmpdir + "/checksum", "r") as f:
+                checksum = f.read()
+        return checksum
 
     @property
     def filename(self):
@@ -40,18 +75,45 @@ class File(BaseModel):
         return filename
 
     @contextmanager
-    def as_local_file(self):
+    def as_local_file(self, check_update: bool = True):
+        """
+        Loads the file as a local file.
+        If check_update is True, it will download a new version if the checksum is different.
+        """
         if self.load_type == LoadLocation.local:
             yield self.path
         elif self.cache_dir is not None:
             # Then we are caching the data in a local directory
             self.cache_dir.mkdir(parents=True, exist_ok=True)
             file_path = self.cache_dir / self.filename
+            cached_checksum_path = self.cache_dir / (self.filename + ".checksum")
             if not file_path.exists():
                 print(f"Downloading {self.path} to {file_path}")
                 self.download_to(file_path)
             else:
-                print(f'{file_path} already exists. Skipping download. If you think this file should be re-downloaded, delete it and try again.')
+                # Then we should download and compare the checksums
+                if self.checksum_file_path is None:
+                    print(f'{file_path} already exists. Skipping download. No checksum found so if you think this file should be re-downloaded, delete it and try again.')
+                elif not cached_checksum_path.exists():
+                    # Then we don't know if the file is up to date so we should download it
+                    if check_update:
+                        print(f"Checksum not found for {file_path}. Downloading it again.")
+                        self.download_to(file_path)
+                    else:
+                        print(f"Checksum not found for {file_path}, but updates are disabled. Skipping download.")
+                else:
+                    new_checksum = self.get_remote_checksum()
+                    with open(cached_checksum_path, "r") as f:
+                        old_checksum = f.read()
+                    should_update = new_checksum != old_checksum
+                    if should_update:
+                        if check_update:
+                            print(f"Checksum mismatch. Deleting {file_path} and downloading again.")
+                            file_path.unlink()
+                            self.download_to(file_path)  # This automatically overwrites the checksum file
+                        else:
+                            print(f"Checksums mismatched, but updates are disabled. Skipping download.")
+                    
             yield file_path
         else:
             # Then we are not caching and the file should be stored in a temporary directory

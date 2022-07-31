@@ -22,6 +22,7 @@
                 "load_config_from": {
                     "load_type": "url",
                     "path": "https://huggingface.co/Veldrovive/upsamplers/raw/main/working/decoder_config.json",
+                    "checksum_file_path": "https://huggingface.co/Veldrovive/upsamplers/raw/main/working/decoder_config.json",
                     "cache_dir": "./models",
                     "filename_override": "second_decoder_config.json"
                 }

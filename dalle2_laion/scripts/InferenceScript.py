@@ -19,14 +19,14 @@ class InferenceScript:
         self.device = model_manager.devices[0] if model_manager is not None else 'cpu'
 
     @classmethod
-    def create(cls: ClassType, config: Union[str, ModelLoadConfig], *args, verbose: bool = False, **kwargs) -> ClassType:
+    def create(cls: ClassType, config: Union[str, ModelLoadConfig], *args, verbose: bool = False, check_updates: bool = True, **kwargs) -> ClassType:
         """
         Creates an instance of the inference script directly from a config.
         Useful if only one inference script will be run at a time.
         """
         if isinstance(config, str):
             config = ModelLoadConfig.from_json_path(config)
-        model_manager = DalleModelManager(config)
+        model_manager = DalleModelManager(config, check_updates=check_updates)
         return cls(model_manager, *args, **kwargs, verbose=verbose)
     
     def print(self, *args, **kwargs):
