@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Any, Tuple, Optional, NamedTuple, TypeVar, Generic, List
+from typing import Any, Tuple, Optional, TypeVar, Generic, List
 from dalle2_laion.config import DecoderLoadConfig, SingleDecoderLoadConfig, PriorLoadConfig, ModelLoadConfig
 from dalle2_pytorch import __version__ as Dalle2Version, Decoder, DiffusionPrior, Unet
 from dalle2_pytorch.train_configs import TrainDecoderConfig, TrainDiffusionPriorConfig, DecoderConfig, UnetConfig, DiffusionPriorConfig
@@ -70,7 +70,9 @@ class DataRequirements:
         )
 
 ModelType = TypeVar('ModelType', Decoder, DiffusionPrior)
-class ModelInfo(NamedTuple, Generic[ModelType]):
+
+@dataclass
+class ModelInfo(Generic[ModelType]):
     model: ModelType
     model_version: Optional[version.Version]
     requires_clip: bool
