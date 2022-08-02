@@ -147,6 +147,7 @@ class DalleModelManager:
                 model_version = model_state_dict['version']
                 if model_version != self.current_version:
                     print(f'WARNING: This decoder was trained on version {model_version} but the current version is {self.current_version}. This may result in the model failing to load.')
+                    print(f'FIX: Switch to this version with `pip install DALLE2-pytorch=={model_version}`. If different models suggest different versions, you may just need to choose one.')
             else:
                 print(f'WARNING: This decoder was trained on an old version of Dalle2. This may result in the model failing to load or it may lead to producing garbage results.')
                 model_version = None  # No version info in the model
@@ -274,6 +275,7 @@ class DalleModelManager:
                 model_version = model_state_dict['version']
                 if model_version != self.current_version:
                     print(f'WARNING: This prior was trained on version {model_version} but the current version is {self.current_version}. This may result in the model failing to load.')
+                    print(f'FIX: Switch to this version with `pip install DALLE2-pytorch=={model_version}`. If different models suggest different versions, you may just need to choose one.')
             else:
                 print('WARNING: This prior was trained on an old version of Dalle2. This may result in the model failing to load or it may produce garbage results.')
                 model_version = None
