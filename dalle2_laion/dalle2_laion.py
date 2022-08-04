@@ -140,6 +140,7 @@ class DalleModelManager:
                 base_sample_timesteps = [None] * len(config.unets)
                 for unet_number, timesteps in zip(load_config.unet_numbers, unet_sample_timesteps):
                     base_sample_timesteps[unet_number - 1] = timesteps
+                config.sample_timesteps = base_sample_timesteps
         
         with load_config.load_model_from.as_local_file(check_update=self.check_updates) as model_file:
             model_state_dict = torch.load(model_file, map_location=self.load_device)
