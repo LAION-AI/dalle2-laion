@@ -21,10 +21,7 @@ Alternatively, you can download the latest checkpoints and use any of the infere
 
 For access to the latest official checkpoints please visit the official 🤗 huggingface [repo](https://huggingface.co/laion/DALLE2-PyTorch).
 
-If you are serious about fine-tuning your own models, full checkpoints are available here:
-* [Conditioned Prior](https://huggingface.co/nousr/conditioned-prior)
-* [DA-VINC-E Decoders](https://huggingface.co/Veldrovive/DA-VINC-E)
-* [GOGH-BIG Upscalers]() (⌛Coming Soon⌛)
+If you are interested in viewing the training runs for these models, they can be found here [decoder](https://wandb.ai/veldrovive/dalle2_train_decoder/runs/2yea5t0u) and [prior](https://wandb.ai/nousr_laion/dalle2_diffusion_prior). Please note that, due to the nature of rapid prototyping, these links may become outdated--we will try out best to keep them updated, however. If you notice that is the case, and would like up-to-date reports, feel free to open an issue!
 
 ## Community
 If you make anything cool, we'd love to see! Join us on Discord <a href="https://discord.gg/xBPBXfcFHd"><img alt="Join us on Discord" src="https://img.shields.io/discord/823813159592001537?color=5865F2&logo=discord&logoColor=white"></a>
