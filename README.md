@@ -23,6 +23,9 @@ For access to the latest official checkpoints please visit the official 🤗 hug
 
 If you are interested in viewing the training runs for these models, they can be found here [decoder](https://wandb.ai/veldrovive/dalle2_train_decoder/runs/2yea5t0u) and [prior](https://wandb.ai/nousr_laion/dalle2_diffusion_prior). Please note that, due to the nature of rapid prototyping, these links may become outdated--we will try out best to keep them updated, however. If you notice that is the case, and would like up-to-date reports, feel free to open an issue!
 
+## Inference Scripts
+Information on how to use the inference scripts can be found in the `dalle2_laion` folder [README.md](dalle2_laion/README.md).
+
 ## Community
 If you make anything cool, we'd love to see! Join us on Discord <a href="https://discord.gg/xBPBXfcFHd"><img alt="Join us on Discord" src="https://img.shields.io/discord/823813159592001537?color=5865F2&logo=discord&logoColor=white"></a>
 
