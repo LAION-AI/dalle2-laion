@@ -9,7 +9,7 @@ A big thanks to...
 * **[lucidrains](https://github.com/lucidrains)**: For spearheading the DALLE2 replication.
 * **[LAION](https://laion.ai/)**: For providing support, feedback, and inspiration to the open-source AI community.
 * **[StabilityAI](https://stability.ai/)**: For their generous donation of compute resources, without that these models would not exist.
-* **[Kumar](github.com/krish240574)**: For fleshing out the initial traning script for the prior.
+* **[Kumar](https://github.com/krish240574)**: For fleshing out the initial training script for the DALLE2-prior.
 
 ## How To Use
 There is a colab notebook available [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/LAION-AI/dalle2-laion/blob/main/notebooks/dalle2_laion_alpha.ipynb) for those who do not have access to a powerful GPU, but want to play around.
