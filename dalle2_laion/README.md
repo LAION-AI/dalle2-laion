@@ -1,6 +1,13 @@
 # DALLE2 LAION Inferencing
 In order to simplify running generalized inferences against a dalle2 model, we have created a three stage process to make any inference possible.
 
+## Simple inference
+If you are not interested in the details, there are two scripts that just run text to image. In either case, you will need a powerful graphics card (with at least 16gb VRAM).
+
+The easiest method is to use the gradio interface with you can start by navigating to the root folder and running `python gradio_inference.py`.
+
+For a lower level platform and a place to develop your own scripts, it is easier to use the cli with `python example_inference.py`.
+
 ## Configuring the Model
 Dalle2 is a multistage model constructed out of an encoder, a prior, and some number of decoders. In order to run inference, we must join together all these separately trained components into one model. To do that, we must point the model manager to the model files and tell it how to load them. This is done through a configuration `.json` file.
 
