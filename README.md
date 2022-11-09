@@ -12,11 +12,7 @@ A big thanks to...
 * **[Kumar](https://github.com/krish240574)**: For fleshing out the initial training script for the DALLE2-prior.
 
 ## How To Use
-There is a colab notebook available [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/LAION-AI/dalle2-laion/blob/main/notebooks/dalle2_laion_alpha.ipynb) for those who do not have access to a powerful GPU, but want to play around.
-
-Alternatively, you can download the latest checkpoints and use any of the inference pipelines available in this repository!
-
-🚧 inference example usage 🚧
+You can download the latest checkpoints, and use the inference pipeline available in this repository!
 
 ## Pre-Trained Models
 
