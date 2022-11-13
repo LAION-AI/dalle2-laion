@@ -16,7 +16,7 @@ You can download the latest checkpoints, and use the inference pipeline availabl
 
 ## Pre-Trained Models
 
-For access to the latest official checkpoints please visit the official 🤗 huggingface [repo](https://huggingface.co/laion/DALLE2-PyTorch).
+For access to the latest official checkpoints please visit the official 🤗 Hugging Face [repo](https://huggingface.co/laion/DALLE2-PyTorch).
 
 If you are interested in viewing the training runs for these models, they can be found here [decoder](https://wandb.ai/veldrovive/dalle2_train_decoder/runs/2yea5t0u) and [prior](https://wandb.ai/nousr_laion/dalle2_diffusion_prior). Please note that, due to the nature of rapid prototyping, these links may become outdated--we will try out best to keep them updated, however. If you notice that is the case, and would like up-to-date reports, feel free to open an issue!
 
